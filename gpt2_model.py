@@ -4,8 +4,9 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 import time
 
 # Load the Tokenizer & Model
-tokenizer = AutoTokenizer.from_pretrained('gpt2')
-model = AutoModelForCausalLM.from_pretrained('gpt2')
+
+tokenizer = AutoTokenizer.from_pretrained("openai-community/gpt2")
+model = AutoModelForCausalLM.from_pretrained("openai-community/gpt2")
 tokenizer.pad_token = tokenizer.eos_token
 
 # Input prompt as batch
