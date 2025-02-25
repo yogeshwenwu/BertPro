@@ -9,7 +9,6 @@ model = AutoModelForCausalLM.from_pretrained("openai-community/gpt2")
 tokenizer.pad_token = tokenizer.eos_token
 device = "cpu"  # device = "cuda" if torch.cuda.is_available() else "cpu"
 model.to(device)
-max_new_token = 10
 
 # Input prompt as batch
 sentences = [
@@ -25,38 +24,47 @@ sentences = [
     "He went to the gym every day, determined to improve"
 ]
 
-
-
+max_new_token = 20
 num_sentences = len(sentences)
 
 # tokenization and  it's time
 enc_start = time.time()
 encoded_input = tokenizer(sentences, padding=True, truncation=True, return_tensors='pt')
-encoded_input = {k: v.to(device) for k, v in encoded_input.items()}
+# encoded_input = {k: v.to(device) for k, v in encoded_input.items()}
 enc_time = time.time() - enc_start
 
+# input token size
 input_token = encoded_input["input_ids"].numel()
-# # warmup run
-# with torch.no_grad():
-#     _ = model.generate(
-#     **encoded_input,
-#     max_new_tokens=max_new_token,
-#     num_beams=4,
-#     return_dict_in_generate=True,
-#     output_scores=True,
-# )
 
+# warmup run
+with torch.no_grad():
+    _ = model.generate(
+    **encoded_input,
+    max_new_tokens=max_new_token,
+    num_beams=4,
+    do_sample = True,
+    temperature = 0.7,
+    repetition_penalty=1.2,
+    return_dict_in_generate=True,
+    output_scores=True,
+)
+
+# TTFT time
 ttft_start = time.time()
 with torch.no_grad():
     outputs = model.generate(
     **encoded_input,
     max_new_tokens=1,
     num_beams=4,
+    do_sample = True,
+    temperature = 0.7,
+    repetition_penalty=1.2,
     return_dict_in_generate=True,
     output_scores=True,
 )
 ttft_end = time.time()
 
+# TPOT time
 start_time = time.time()
 with torch.no_grad():
     outputs = model.generate(
@@ -70,13 +78,17 @@ with torch.no_grad():
     output_scores=True,
 )
 end_time = time.time()
+print(outputs)
 
+# decoding the output and it's time 
 decode_start = time.time()
 generated_texts = [tokenizer.decode(output, skip_special_tokens=True) for output in outputs.sequences]
 decode_time = time.time() - decode_start
-# print(outputs)
+
+# generated token size 
 num_tokens_generated = sum(len(output) for output in outputs.sequences)
 
+# ttft and tpot time
 ttft_time = (ttft_end - ttft_start)
 tpot_time = ((end_time - start_time) - ttft_time) / (num_tokens_generated - 1)
 
@@ -90,24 +102,24 @@ print(f"Number of sentences: {num_sentences}") # 10
 
 latency_perBatch = total_time / num_sentences # per-batch = (tot_time/ num_itr)
 latency = total_time # entire batch = tot_time
-tps = num_tokens_generated / (latency / 1000) 
-rps = num_sentences / (latency / 1000)
+tps = max_new_token / (latency) 
+rps = num_sentences / (latency)
 
 # cross verify latency, ttft, tpot using the below formula
 crossVerify_latency = ttft_time + (tpot_time * (max_new_token - 1))
-if (crossVerify_latency == latency - enc_time - decode_time):
+# if (crossVerify_latency == latency - enc_time - decode_time):
+if (crossVerify_latency == latency):
     print("Correct Latency") # if correct 
 else:
     print("Incorrect Latency")
 print()
-
 
 # print Preformance measures    
 # print(f"Input tokens: {input_token}")
 print(f"CVLatency: {crossVerify_latency * 1000:.4f} ms")
 print(f"Latency: {latency * 1000:.4f} ms")
 print(f"TTFT: {ttft_time:.4f} s")
-print(f"TPOT: {tpot_time:.4f} tps")
+print(f"TPOT: {tpot_time:.4f} spt")
 print(f"TPS: {tps:.4f} tps")
 print(f"RPS: {rps:.4f} rps")
 
