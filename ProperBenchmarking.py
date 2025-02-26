@@ -9,6 +9,9 @@ model = AutoModelForCausalLM.from_pretrained("openai-community/gpt2", torch_dtyp
 tokenizer.pad_token = tokenizer.eos_token
 device = "cpu"  # device = "cuda" if torch.cuda.is_available() else "cpu"
 model.to(device)
+model.eval()
+
+#model
 
 # Input prompt as batch
 sentences = [
@@ -78,12 +81,13 @@ end_time = time.time()
 # print(generated_texts) ---
 
 # # need to remove input tokens from output tokens
-num_tokens_generated = var2[0] - var1[0]
+num_tokens_generated = (var2[0] - var1[0]) * batch_size
+# doubt: this is for token generated in one sentence, should we do this for all the generated tokens?
 
 ttft_time = (ttft_end - ttft_start)
-tpot_time = ((end_time - start_time) - ttft_time) / (num_tokens_generated - 1)
+tpot_time = ((end_time - start_time) - ttft_time) / ((num_tokens_generated / batch_size) - 1)
 
-print(f"Number of Tokens generated:{num_tokens_generated}") # 210
+print(f"Number of Tokens generated:{num_tokens_generated}") # 200
 print(f"Number of sentences: {batch_size}") # 10
 
 # latency_perBatch = total_time / batch_size # per-batch = (tot_time/ num_itr)
@@ -112,6 +116,6 @@ print(f"RPS: {rps:.4f} rps")
 
 
 
-
-for name, param in model.named_parameters():
-     print(f"Parameter: {name}, Shape: {param.shape}, Data Type: {param.dtype}")
+# # To print the parameters with datatypes
+# for name, param in model.named_parameters():
+#      print(f"Parameter: {name}, Shape: {param.shape}, Data Type: {param.dtype}")
